@@ -28,7 +28,6 @@ def matching_files(directory, suffix):
     for file in os.listdir(directory):
         if file.endswith(suffix):
             matching_paths.append(os.path.join(directory, file))
-    
     return matching_paths
 
     
@@ -43,15 +42,15 @@ def parse_src(src, suffix):
     file_paths = []
     ## Loop over input, determining if directory or file
     for item in src:
-        abs_item = os.path.abspath(item)
         # if directory, parse it and add each file
-        if os.path.isdir(abs_item):
-            for f in matching_files(abs_item, suffix):
+        if os.path.isdir(item):
+            for f in matching_files(item, suffix):
                 file_paths.append(f)
-        ## if file, just add it
-        elif os.path.isfile(abs_item):
-            file_paths.append(item)
-    
+        ## if file, check suffix, then add it
+        elif os.path.isfile(item):
+            if item.endswith(suffix):
+                file_paths.append(item)
+    logging.info('file_paths: {}'.format(file_paths))
     return file_paths
 
 
@@ -69,7 +68,7 @@ def raster_bounds(path):
     return ulx, lry, lrx, uly
 
     
-def minimum_bounding_box(dems):
+def minimum_bounding_box(rasters):
     '''
     Takes a list of DEMs (or rasters) and returns the minimum bounding box of all in
     the order of bounds specified for gdal.Translate.
@@ -78,8 +77,8 @@ def minimum_bounding_box(dems):
     ## Determine minimum bounding box
     ulxs, lrys, lrxs, ulys = list(), list(), list(), list()
     #geoms = list()
-    for dem_p in dems:
-        ulx, lry, lrx, uly = raster_bounds(dem_p)
+    for raster_p in rasters:
+        ulx, lry, lrx, uly = raster_bounds(raster_p)
     #    geom_pts = [(ulx, lry), (lrx, lry), (lrx, uly), (ulx, uly)]
     #    geom = Polygon(geom_pts)
     #    geoms.append(geom)
@@ -99,27 +98,42 @@ def minimum_bounding_box(dems):
     return projWin
 
 
-def translate_dems(dems, projWin, out_dir):
+def translate_rasters(rasters, projWin, out_dir, out_suffix='_trans'):
     '''
-    Takes a list of dems and translates (clips) them to the minimum bounding box
+    Takes a list of rasters and translates (clips) them to the minimum bounding box
     '''
     ## Translate (clip) to minimum bounding box
-    for dem_p in dems:
+    translated = {}
+    for raster_p in rasters:
         if not out_dir:
-            out_dir == os.path.dirname(dem_p)
-        logging.info('Translating {}...'.format(dem_p))
-        dem_out_name = '{}_trans.tif'.format(os.path.basename(dem_p).split('.')[0])
-        dem_op = os.path.join(out_dir, dem_out_name)
+            out_dir == os.path.dirname(raster_p)
+        logging.info('Translating {}...'.format(raster_p))
+        raster_out_name = '{}_{}.tif'.format(os.path.basename(raster_p).split('.')[0], out_suffix)
+        raster_op = os.path.join(out_dir, raster_out_name)
         
-        dem_ds = gdal.Open(dem_p)
-        gdal.Translate(dem_op, dem_ds, projWin=projWin)
+        raster_ds = gdal.Open(raster_p)
+        translated[raster_op] = gdal.Translate(raster_op, raster_ds, projWin=projWin)
+    
+    return translated
 
 
-def clip2min_bb():
+def clip2min_bb(src, out_dir, suffix=('.tif'), out_suffix='_trans'):
     '''
     Main function to clip a number of rasters to a the minimum bounding box of all.
+    src: list of raster paths and/or directories
+    out_dir: directory to write clipped rasters to, can use /vsiem/ to only save to 
+             memory
+    suffix: common suffix among rasters, can supply multiple as tuple
+    out_suffix: suffix to append to output rasters.
     '''
-    
+    ## Get paths of rasters in src
+    file_paths = parse_src([src], suffix=suffix)
+    ## Get min bounding box of rasters
+    projWin = minimum_bounding_box(file_paths)
+    ## Translate rasters, returns dict of filepath: translated_raster
+    translated = translate_rasters(file_paths, projWin, out_dir, out_suffix=out_suffix)
+
+    return translated
     
 
 def write_min_bb(projWin, out_dir, dems):
@@ -166,36 +180,37 @@ def write_min_bb(projWin, out_dir, dems):
     
     # Save feature and data source
     feature = None
-    out_data_source = None
-    
+    out_data_source = None    
 #    min_bb = Polygon([(ulx, lry), (lrx, lry), (lrx, uly), (ulx, uly)])
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('src', nargs="+", type=str,
-                        help="Directory to DEMs or paths individual DEMs.")
+                        help="Directory to rasters or paths individual rasters.")
     parser.add_argument('-s', '--suffix', nargs='?', default='.tif', type=str,
-                        help="Suffix that all DEMs share.")
+                        help="Suffix that all rasters share.")
     parser.add_argument('-w', '--write_shp', action='store_true',
                         help="Optional flag to write shape")
     parser.add_argument('-o', '--out_dir', type=str,
-                        help='''Path to write translated DEMs to. Defaults to current
-                        directory for each DEM provided.''')
+                        help='''Directory to write translated rasters to. Defaults to current
+                        directory for each raster provided. Alternatively, can supply
+                        /vsimem/ to not save rasters anywhere (in case of just wanting
+                        shapefile of minimum bounding box.)''')
     
     args = parser.parse_args()
     
-    src = args.src
+    src = [os.path.abspath(s) for s in args.src]
     suffix = args.suffix
     write_shp = args.write_shp
     out_dir = args.out_dir
     
-    dems = parse_src(src, suffix)
-    projWin = minimum_bounding_box(dems)
-    translate_dems(dems, projWin, out_dir=out_dir)
+    rasters = parse_src(src, suffix)
+    projWin = minimum_bounding_box(rasters)
+    translate_rasters(rasters, projWin, out_dir=out_dir)
 
     if write_shp == True:
-        write_min_bb(projWin, out_dir, dems)
+        write_min_bb(projWin, out_dir, rasters)
         
 
 
