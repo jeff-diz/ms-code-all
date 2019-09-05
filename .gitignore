@@ -1,2 +1,4 @@
 sample_data/
 scratch
+__init__.py
+__pycache__/

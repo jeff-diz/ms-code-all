@@ -112,14 +112,14 @@ def translate_rasters(rasters, projWin, out_dir, out_suffix='_trans'):
         raster_op = os.path.join(out_dir, raster_out_name)
         
         raster_ds = gdal.Open(raster_p)
-        translated[raster_op] = gdal.Translate(raster_op, raster_ds, projWin=projWin)
+        translated[raster_out_name] = gdal.Translate(raster_op, raster_ds, projWin=projWin)
     
     return translated
 
 
 def clip2min_bb(src, out_dir, suffix=('.tif'), out_suffix='_trans'):
     '''
-    Main function to clip a number of rasters to a the minimum bounding box of all.
+    Wrapper function to clip a number of rasters to a the minimum bounding box of all.
     src: list of raster paths and/or directories
     out_dir: directory to write clipped rasters to, can use /vsiem/ to only save to 
              memory
