@@ -30,18 +30,18 @@ def calc_rmse(l1, l2):
     return rmse_val
 
 
-#def raster_bounds(path):
+def raster_bounds(path):
     '''
     GDAL only version of getting bounds
     '''
-#    src = gdal.Open(path)
-#    gt = src.GetGeoTransform()
-#    minx = gt[0]
-#    maxy = gt[3]
-#    maxx = minx + gt[1] * src.RasterXSize
-#    miny = maxy + gt[5] * src.RasterYSize
-#    
-#    return minx, miny, maxx, maxy
+    src = gdal.Open(path)
+    gt = src.GetGeoTransform()
+    minx = gt[0]
+    maxy = gt[3]
+    maxx = minx + gt[1] * src.RasterXSize
+    miny = maxy + gt[5] * src.RasterYSize
+    
+    return minx, miny, maxx, maxy
     
 
 def raster_bounds(path):
@@ -106,7 +106,6 @@ def sample_points(dem1_path, dem2_path, num_pts=1000):
 #    dem2_nodata = dem2_src.GetRasterBand(1).GetNoDataValue()
     dem2 = dem2_src.ReadAsArray()
     dem2_gt = dem2_src.GetGeoTransform()
-    
     
     ## Get extents of DEMs exluding NoData
     dem1_bb = raster_bounds(dem1_path)

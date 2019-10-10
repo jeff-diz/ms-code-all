@@ -31,6 +31,13 @@ class Raster():
         
         self.x_sz = self.data_src.RasterXSize
         self.y_sz = self.data_src.RasterYSize
+        
+        self.x_origin = self.geotransform[0]
+        self.y_origin = self.geotransform[3]
+        
+        self.pixel_width = self.geotransform[1]
+        self.pixel_height = self.geotransform[5]
+        
         self.nodata_val = self.data_src.GetRasterBand(1).GetNoDataValue()
         self.dtype = self.data_src.GetRasterBand(1).DataType
         
@@ -39,6 +46,41 @@ class Raster():
         self.Array = self.data_src.ReadAsArray()
 
 
+    def geo2pixel(self, geocoord):
+        """
+        Convert geographic coordinates to pixel coordinates
+        """
+
+        py = int(np.around((geocoord[0] - self.geotransform[3]) / self.geotransform[5]))
+        px = int(np.around((geocoord[1] - self.geotransform[0]) / self.geotransform[1]))
+        
+        return (py, px)
+    
+    def projWin2pixelWin(self, projWin):
+        """
+        Convert projWin in geocoordinates to pixel coordinates
+        """
+        ul = (projWin[1], projWin[0])
+        lr = (projWin[3], projWin[2])
+        
+        puly, pulx = self.geo2pixel(ul)
+        plry, plrx = self.geo2pixel(lr)
+        
+        return [pulx, puly, plrx, plry]    
+
+
+    def ArrayWindow(self, projWin):
+        """
+        Takes a projWin in geocoordinates, converts
+        it to pixel coordinates and returns the 
+        array referenced.
+        """
+        xmin, ymin, xmax, ymax = self.projWin2pixelWin(projWin)
+        self.arr_window = self.Array[ymin:ymax, xmin:xmax]
+        
+        return self.arr_window
+    
+        
     def ReadStackedArray(self, stacked=True):
         '''
         Read raster as array, stacking multiple bands as either stacked array or multiple arrays
@@ -93,7 +135,7 @@ class Raster():
     def SamplePoint(self, point):
         '''
         Samples the current raster object at the given point. Must be the
-        sampe coordinate system used by the raster object.
+        same coordinate system used by the raster object.
         point: tuple of (y, x) in geocoordinates
         '''
         ## Convert point geocoordinates to array coordinates
@@ -103,8 +145,8 @@ class Raster():
         try:    
             point_value = self.Array[py, px]
         except IndexError as e:
-            logging.error('Point not within raster bounds.')
-            logging.error(e)
+            logging.debug('Point not within raster bounds.')
+            logging.debug(e)
             point_value = None
         return point_value
     

@@ -108,7 +108,7 @@ def translate_rasters(rasters, projWin, out_dir, out_suffix='_trans'):
         if not out_dir:
             out_dir == os.path.dirname(raster_p)
         logging.info('Translating {}...'.format(raster_p))
-        raster_out_name = '{}_{}.tif'.format(os.path.basename(raster_p).split('.')[0], out_suffix)
+        raster_out_name = '{}_{}.tif'.format(os.path.split(raster_p)[0], out_suffix)
         raster_op = os.path.join(out_dir, raster_out_name)
         
         raster_ds = gdal.Open(raster_p)
@@ -192,7 +192,7 @@ if __name__ == '__main__':
                         help="Suffix that all rasters share.")
     parser.add_argument('-w', '--write_shp', action='store_true',
                         help="Optional flag to write shape")
-    parser.add_argument('-o', '--out_dir', type=str,
+    parser.add_argument('-o', '--out_dir', type=str, default=None,
                         help='''Directory to write translated rasters to. Defaults to current
                         directory for each raster provided. Alternatively, can supply
                         /vsimem/ to not save rasters anywhere (in case of just wanting
